@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LiftLog">
+<meta name="theme-color" content="#080808">
+<title>LiftLog</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#080808;--s1:#111111;--s2:#181818;--s3:#222222;
+  --border:#282828;--text:#e4e4e4;--muted:#555;--dim:#333;
+  --amber:#f59e0b;--amber-a:rgba(245,158,11,0.12);
+  --blue:#38bdf8;--blue-a:rgba(56,189,248,0.12);
+  --red:#ef4444;--red-a:rgba(239,68,68,0.12);
+  --green:#22c55e;--green-a:rgba(34,197,94,0.12);
+  --sb:env(safe-area-inset-bottom);--st:env(safe-area-inset-top);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+#app{display:flex;flex-direction:column;height:100%;max-width:430px;margin:0 auto;position:relative}
+#hdr{padding:14px 20px 10px;padding-top:calc(14px + var(--st));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--bg)}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:3px;color:var(--amber)}
+.logo-sub{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:1px}
+.hdr-week{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);text-align:right}
+#main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:14px 14px calc(72px + var(--sb));background:var(--bg)}
+#main::-webkit-scrollbar{width:3px}
+#main::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(8,8,8,0.95);border-top:1px solid var(--border);display:flex;padding-bottom:var(--sb);backdrop-filter:blur(12px);z-index:50}
+.nb{flex:1;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Sans',sans-serif;font-weight:500;cursor:pointer;transition:color .2s}
+.nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.nb.active{color:var(--amber)}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px}
+.card-title{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-weight:600;margin-bottom:12px}
+.day-row{display:flex;gap:8px;margin-bottom:14px}
+.db{flex:1;padding:11px 6px;border:1px solid var(--border);border-radius:8px;background:var(--s2);color:var(--muted);font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1.5px;cursor:pointer;text-align:center;transition:all .15s}
+.db.on{border-color:var(--amber);background:var(--amber-a);color:var(--amber)}
+.db.wed-on{border-color:var(--blue);background:var(--blue-a);color:var(--blue)}
+.field{margin-bottom:14px}
+.fl{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:500;margin-bottom:6px}
+.opt{font-size:9px;color:var(--dim);text-transform:none;letter-spacing:0;margin-left:6px}
+.rg{display:flex;gap:5px}
+.rb{flex:1;padding:9px 2px;border:1px solid var(--border);border-radius:6px;background:var(--s2);color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:15px;cursor:pointer;text-align:center;transition:all .15s;-webkit-appearance:none}
+.rb.on{border-color:var(--amber);background:var(--amber-a);color:var(--amber)}
+.rb.on-b{border-color:var(--blue);background:var(--blue-a);color:var(--blue)}
+.rb.on-r{border-color:var(--red);background:var(--red-a);color:var(--red)}
+input.ni{width:100%;padding:11px 12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:17px;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+input.ni:focus{border-color:var(--amber)}
+input.ni::placeholder{color:var(--dim);font-size:13px}
+input.date-i{color-scheme:dark}
+.isuf{display:flex;align-items:center;gap:8px}
+.suf{color:var(--muted);font-size:13px;white-space:nowrap;font-family:'IBM Plex Mono',monospace}
+.sml{max-width:110px}
+.e1rm-preview{background:var(--s2);border:1px solid var(--amber);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:baseline;gap:6px}
+.e1rm-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}
+.e1rm-val{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--amber);margin-left:auto}
+.e1rm-unit{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);margin-left:2px}
+.save-btn{width:100%;padding:15px;background:var(--amber);border:none;border-radius:10px;color:#000;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;cursor:pointer;transition:opacity .15s;margin-top:4px}
+.save-btn:active{opacity:.75}
+.save-btn:disabled{opacity:.4;cursor:not-allowed}
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.mc{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:13px}
+.ml{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.mv{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.5px;line-height:1}
+.mu{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-left:2px}
+.mt{font-size:11px;margin-top:3px}
+.tu{color:var(--green)}.td{color:var(--red)}.tn{color:var(--muted)}
+.trow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px}
+.tl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:500}
+.tsw{width:38px;height:20px;background:var(--s3);border:1px solid var(--border);border-radius:10px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.tsw.on{background:var(--amber);border-color:var(--amber)}
+.tsw::after{content:'';position:absolute;width:14px;height:14px;background:#e4e4e4;border-radius:50%;top:2px;left:2px;transition:left .2s}
+.tsw.on::after{left:20px}
+.ch{position:relative;height:180px;margin-top:8px}
+.si{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:8px}
+.sh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.sd{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px}
+.sd.mon{color:var(--blue)}.sd.fri{color:var(--amber)}.sd.wed{color:var(--green)}
+.sdate{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tag{background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)}
+.tag b{color:var(--text);font-weight:500}
+.tag.hi{border-color:var(--amber);color:var(--amber)}
+.del-btn{background:none;border:1px solid var(--border);border-radius:5px;color:var(--dim);padding:3px 9px;font-size:11px;cursor:pointer;font-family:'IBM Plex Mono',monospace;flex-shrink:0}
+.exp-btn{width:100%;padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'IBM Plex Sans',sans-serif}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-ic{font-size:40px;margin-bottom:10px}
+.empty-t{font-size:13px;line-height:1.6}
+#toast{position:fixed;top:calc(16px + var(--st));left:50%;transform:translateX(-50%) translateY(-70px);padding:9px 20px;border-radius:16px;font-size:12px;font-weight:600;z-index:100;transition:transform .3s ease;pointer-events:none}
+#toast.ok{background:var(--green);color:#000}
+#toast.err{background:var(--red);color:#fff}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-left:6px;vertical-align:middle}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.info-box{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--muted);line-height:1.6}
+.info-box b{color:var(--text)}
+.loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
+.loading-spin{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.week-table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11px;margin-top:8px}
+.week-table th{color:var(--muted);font-weight:500;padding:6px 8px;text-align:right;border-bottom:1px solid var(--border)}
+.week-table th:first-child{text-align:left}
+.week-table td{padding:6px 8px;text-align:right;border-bottom:1px solid rgba(40,40,40,.5);color:var(--text)}
+.week-table td:first-child{text-align:left;color:var(--muted)}
+.wk-e1rm{color:var(--amber);font-weight:500}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <div>
+      <div class="logo">LIFTLOG</div>
+      <div class="logo-sub" id="sub">Training Log</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="hdr-week" id="hdr-r"></div>
+      <div class="sync-dot" id="sync-dot" title="Sync status"></div>
+    </div>
+  </div>
+  <div id="main"><div class="loading"><div class="loading-spin"></div>Connecting…</div></div>
+  <nav id="nav">
+    <button class="nb active" id="nb-log" onclick="nav('log')">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Log
+    </button>
+    <button class="nb" id="nb-dash" onclick="nav('dash')">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Trends
+    </button>
+    <button class="nb" id="nb-hist" onclick="nav('hist')">
+      <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>History
+    </button>
+  </nav>
+</div>
+<div id="toast"></div>
+
+<script>
+// ── SUPABASE ───────────────────────────────────────────────────────────
+const SUPA_URL = 'https://nkiuytggmlswuehudgxp.supabase.co';
+const SUPA_KEY = 'sb_publishable_VDvkEUgHbs5XjJSq-fg74w_u1h4U4Cn';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── STATE ──────────────────────────────────────────────────────────────
+const S = {
+  view: 'log',
+  day: 'MON',
+  date: todayStr(),
+  form: {},
+  rolling: true,
+  sessions: [],
+  charts: {}
+};
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function setSyncDot(state) {
+  const d = document.getElementById('sync-dot');
+  if (!d) return;
+  d.className = 'sync-dot' + (state==='syncing'?' syncing':state==='err'?' err':'');
+}
+
+// ── STORAGE ────────────────────────────────────────────────────────────
+async function loadData() {
+  setSyncDot('syncing');
+  const { data, error } = await db.from('sessions').select('*').order('date', { ascending: true });
+  if (error) { setSyncDot('err'); toast('Load failed: ' + error.message, true); return []; }
+  setSyncDot('ok');
+  // flatten: id, date, day at top level; everything else in data jsonb
+  return (data || []).map(r => ({ id: r.id, date: r.date, day: r.day, ...r.data }));
+}
+
+async function addSession(s) {
+  setSyncDot('syncing');
+  const { id, date, day, ...rest } = s;
+  const { data, error } = await db.from('sessions').insert({
+    date,
+    day,
+    data: rest
+  }).select().single();
+  if (error) { setSyncDot('err'); toast('Save failed: ' + error.message, true); return null; }
+  setSyncDot('ok');
+  return { id: data.id, date: data.date, day: data.day, ...data.data };
+}
+
+async function deleteSessionRemote(id) {
+  setSyncDot('syncing');
+  const { error } = await db.from('sessions').delete().eq('id', id);
+  if (error) { setSyncDot('err'); toast('Delete failed: ' + error.message, true); return false; }
+  setSyncDot('ok');
+  return true;
+}
+
+// ── CALCULATIONS ───────────────────────────────────────────────────────
+function e1rm(load, reps, rir) {
+  if (!load || !reps) return null;
+  const eff = Number(reps) + Number(rir || 0);
+  if (eff <= 0) return Number(load);
+  return Math.round(Number(load) * (1 + eff / 30) * 10) / 10;
+}
+
+function fatigueIdx(s) {
+  const pts = [], ws = [];
+  if (s.sessionDifficulty != null) { pts.push(s.sessionDifficulty / 5); ws.push(2.5); }
+  if (s.kneeAwareness != null)     { pts.push(s.kneeAwareness / 5);     ws.push(2); }
+  if (s.olQuality != null)         { pts.push(1 - (s.olQuality-1)/4);   ws.push(1); }
+  if (s.subjectiveSpeed != null)   { pts.push(1 - (s.subjectiveSpeed-1)/4); ws.push(1.5); }
+  if (!pts.length) return null;
+  const tw = ws.reduce((a,b)=>a+b,0);
+  return Math.round(pts.reduce((acc,v,i)=>acc+v*ws[i],0)/tw*100)/10;
+}
+
+function isoWeek(ds) {
+  const d = new Date(ds); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 3 - (d.getDay()+6)%7);
+  const w1 = new Date(d.getFullYear(),0,4);
+  const wn = 1 + Math.round(((d-w1)/86400000 - 3 + (w1.getDay()+6)%7)/7);
+  return d.getFullYear() + '-W' + String(wn).padStart(2,'0');
+}
+
+function weeklyData() {
+  const map = {};
+  for (const s of S.sessions) {
+    const wk = isoWeek(s.date);
+    if (!map[wk]) map[wk] = { week: wk, list: [] };
+    map[wk].list.push(s);
+  }
+  return Object.values(map).sort((a,b)=>a.week<b.week?-1:1).map(w => {
+    const fri = w.list.find(s=>s.day==='FRI');
+    const mon = w.list.find(s=>s.day==='MON');
+    const avg = key => {
+      const v = w.list.map(s=>s[key]).filter(x=>x!=null);
+      return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10 : null;
+    };
+    const fis = w.list.map(s=>fatigueIdx(s)).filter(x=>x!=null);
+    const wkFI = fis.length ? Math.round(fis.reduce((a,b)=>a+b,0)/fis.length*10)/10 : null;
+    return {
+      week: w.week, lbl: w.week.replace(/\d{4}-/,''),
+      e1rm: fri ? e1rm(fri.topSetLoad, fri.topSetReps, fri.topSetRIR) : null,
+      avgOL: avg('olQuality'), avgKnee: avg('kneeAwareness'),
+      fi: wkFI,
+      monDiff: mon?.sessionDifficulty ?? null,
+      friDiff: fri?.sessionDifficulty ?? null,
+      monSpeed: mon?.subjectiveSpeed ?? null,
+      friSpeed: fri?.subjectiveSpeed ?? null,
+    };
+  });
+}
+
+function rollAvg(arr, key, w=4) {
+  return arr.map((d,i) => {
+    const sl = arr.slice(Math.max(0,i-w+1),i+1);
+    const v = sl.map(x=>x[key]).filter(x=>x!=null);
+    return v.length ? Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10 : null;
+  });
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────
+function nav(v) {
+  S.view = v;
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nb-'+v).classList.add('active');
+  const titles = {log:'Training Log',dash:'Analytics',hist:'Session History'};
+  document.getElementById('sub').textContent = titles[v];
+  const wd = weeklyData();
+  document.getElementById('hdr-r').textContent = wd.length ? `${wd.length}wk · ${S.sessions.length}s` : '';
+  destroyCharts();
+  if (v==='log') renderLog();
+  else if (v==='dash') renderDash();
+  else renderHist();
+}
+
+function toast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'err show' : 'ok show';
+  setTimeout(()=>t.className = t.className.replace(' show',''), 2400);
+}
+
+// ── RATING BUTTONS ────────────────────────────────────────────────────
+function rg(name, val, color='') {
+  return `<div class="rg" id="rg-${name}">
+    ${[1,2,3,4,5].map(n=>`<button class="rb${val==n?' on'+color:''}" onclick="sr('${name}',${n},'${color}')">${n}</button>`).join('')}
+  </div>`;
+}
+function sr(name, val, color) {
+  S.form[name] = val;
+  const g = document.getElementById('rg-'+name);
+  if (!g) return;
+  g.querySelectorAll('.rb').forEach((b,i)=>{
+    b.className = 'rb' + (i+1===val ? ' on'+color : '');
+  });
+  if (['topSetLoad','topSetReps','topSetRIR'].includes(name)) updE1RM();
+}
+
+// ── LOG VIEW ──────────────────────────────────────────────────────────
+function renderLog() {
+  const f = S.form, d = S.day;
+  let fields = '';
+
+  if (d==='MON') {
+    fields = `
+      <div class="field"><label class="fl">OL Lift Quality</label>${rg('olQuality',f.olQuality)}</div>
+      <div class="field"><label class="fl">FS 80kg — Subjective Speed</label>${rg('subjectiveSpeed',f.subjectiveSpeed)}</div>
+      <div class="field">
+        <label class="fl">FS 80kg — Actual Speed<span class="opt">m/s · optional</span></label>
+        <div class="isuf"><input class="ni" type="number" step="0.01" placeholder="e.g. 0.62" value="${f.actualSpeed??''}" oninput="S.form.actualSpeed=this.value?+this.value:null"><span class="suf">m/s</span></div>
+      </div>
+      <div class="field">
+        <label class="fl">Front Squat Working Load</label>
+        <div class="isuf"><input class="ni" type="number" step="2.5" placeholder="kg" value="${f.workingSetLoad??''}" oninput="S.form.workingSetLoad=this.value?+this.value:null"><span class="suf">kg</span></div>
+      </div>
+      <div class="field">
+        <label class="fl">Working Sets</label>
+        <input class="ni sml" type="number" step="1" placeholder="sets" value="${f.workingSets??''}" oninput="S.form.workingSets=this.value?+this.value:null">
+      </div>
+      <div class="field"><label class="fl">Knee Tendon Awareness</label>${rg('kneeAwareness',f.kneeAwareness,'-r')}</div>
+      <div class="field"><label class="fl">Session Difficulty</label>${rg('sessionDifficulty',f.sessionDifficulty)}</div>
+    `;
+  } else if (d==='WED') {
+    fields = `
+      <div class="field"><label class="fl">OL Lift Quality</label>${rg('olQuality',f.olQuality,'-b')}</div>
+      <div class="field">
+        <label class="fl">Back Squat Load</label>
+        <div class="isuf"><input class="ni" type="number" step="2.5" placeholder="kg" value="${f.backSquatLoad??''}" oninput="S.form.backSquatLoad=this.value?+this.value:null"><span class="suf">kg</span></div>
+      </div>
+      <div class="field">
+        <label class="fl">Back Squat Sets</label>
+        <input class="ni sml" type="number" step="1" placeholder="sets" value="${f.backSquatSets??''}" oninput="S.form.backSquatSets=this.value?+this.value:null">
+      </div>
+      <div class="field"><label class="fl">Knee Tendon Awareness</label>${rg('kneeAwareness',f.kneeAwareness,'-r')}</div>
+    `;
+  } else {
+    const est = e1rm(f.topSetLoad, f.topSetReps, f.topSetRIR);
+    fields = `
+      <div class="field"><label class="fl">OL Lift Quality</label>${rg('olQuality',f.olQuality)}</div>
+      <div class="field"><label class="fl">FS 80kg — Subjective Speed</label>${rg('subjectiveSpeed',f.subjectiveSpeed)}</div>
+      <div class="field">
+        <label class="fl">FS 80kg — Actual Speed<span class="opt">m/s · optional</span></label>
+        <div class="isuf"><input class="ni" type="number" step="0.01" placeholder="e.g. 0.62" value="${f.actualSpeed??''}" oninput="S.form.actualSpeed=this.value?+this.value:null"><span class="suf">m/s</span></div>
+      </div>
+      <div class="field">
+        <label class="fl">Top Set — Load</label>
+        <div class="isuf"><input class="ni" type="number" step="2.5" placeholder="kg" value="${f.topSetLoad??''}" oninput="S.form.topSetLoad=this.value?+this.value:null;updE1RM()"><span class="suf">kg</span></div>
+      </div>
+      <div class="field">
+        <label class="fl">Top Set — Reps</label>
+        <input class="ni sml" type="number" step="1" placeholder="reps" value="${f.topSetReps??''}" oninput="S.form.topSetReps=this.value?+this.value:null;updE1RM()">
+      </div>
+      <div class="field">
+        <label class="fl">Top Set — RIR<span class="opt">reps in reserve</span></label>
+        <input class="ni sml" type="number" step="1" min="0" max="10" placeholder="0–5" value="${f.topSetRIR!=null?f.topSetRIR:''}" oninput="S.form.topSetRIR=this.value!==''?+this.value:null;updE1RM()">
+      </div>
+      <div id="e1rm-box">${est?`<div class="e1rm-preview"><span class="e1rm-label">Estimated 1RM</span><span class="e1rm-val">${est}<span class="e1rm-unit">kg</span></span></div>`:''}</div>
+      <div class="field">
+        <label class="fl">Backoff Sets</label>
+        <input class="ni sml" type="number" step="1" placeholder="sets" value="${f.backoffSets??''}" oninput="S.form.backoffSets=this.value?+this.value:null">
+      </div>
+      <div class="field">
+        <label class="fl">Backoff Load</label>
+        <div class="isuf"><input class="ni" type="number" step="2.5" placeholder="kg" value="${f.backoffLoad??''}" oninput="S.form.backoffLoad=this.value?+this.value:null"><span class="suf">kg</span></div>
+      </div>
+      <div class="field"><label class="fl">Knee Tendon Awareness</label>${rg('kneeAwareness',f.kneeAwareness,'-r')}</div>
+    `;
+  }
+
+  document.getElementById('main').innerHTML = `
+    <div class="field">
+      <label class="fl">Date</label>
+      <input class="ni date-i" type="date" value="${S.date}" onchange="S.date=this.value">
+    </div>
+    <div class="day-row">
+      <button class="db${d==='MON'?' on':''}" onclick="selDay('MON')">MON</button>
+      <button class="db${d==='WED'?' wed-on':''}" onclick="selDay('WED')">WED</button>
+      <button class="db${d==='FRI'?' on':''}" onclick="selDay('FRI')">FRI</button>
+    </div>
+    <div class="card">${fields}<button class="save-btn" id="save-btn" onclick="saveSession()">SAVE SESSION</button></div>
+  `;
+}
+
+function selDay(d) { S.day=d; S.form={}; renderLog(); }
+
+function updE1RM() {
+  const b = document.getElementById('e1rm-box');
+  if (!b) return;
+  const est = e1rm(S.form.topSetLoad, S.form.topSetReps, S.form.topSetRIR);
+  b.innerHTML = est ? `<div class="e1rm-preview"><span class="e1rm-label">Estimated 1RM</span><span class="e1rm-val">${est}<span class="e1rm-unit">kg</span></span></div>` : '';
+}
+
+async function saveSession() {
+  const btn = document.getElementById('save-btn');
+  if (btn) { btn.disabled=true; btn.textContent='SAVING…'; }
+  const s = { date: S.date, day: S.day, ...S.form };
+  const saved = await addSession(s);
+  if (saved) {
+    S.sessions.push(saved);
+    S.sessions.sort((a,b)=>a.date<b.date?-1:1);
+    S.form = {};
+    toast('Session saved! 💪');
+    renderLog();
+  } else {
+    if (btn) { btn.disabled=false; btn.textContent='SAVE SESSION'; }
+  }
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────
+function destroyCharts() {
+  Object.values(S.charts).forEach(c=>{ if(c&&typeof c.destroy==='function') c.destroy(); });
+  S.charts = {};
+}
+
+function renderDash() {
+  destroyCharts();
+  const wd = weeklyData();
+  if (!wd.length) {
+    document.getElementById('main').innerHTML = `<div class="empty"><div class="empty-ic">📈</div><div class="empty-t">No sessions yet.<br>Start logging to see your trends.</div></div>`;
+    return;
+  }
+  const last = wd[wd.length-1], prev = wd.length>1?wd[wd.length-2]:null;
+  function trend(cur,pre,hib=true) {
+    if(!pre||cur==null||pre==null)return'';
+    const d=cur-pre,up=d>0,good=hib?up:!up;
+    if(Math.abs(d)<0.05)return'<span class="tn">→</span>';
+    return`<span class="${good?'tu':'td'}">${up?'↑':'↓'} ${Math.abs(d).toFixed(1)}</span>`;
+  }
+  const e1rms=wd.filter(w=>w.e1rm!=null);
+  const latE=e1rms.length?e1rms[e1rms.length-1].e1rm:null;
+  const prevE=e1rms.length>1?e1rms[e1rms.length-2].e1rm:null;
+  function fiColor(fi){return fi==null?'var(--muted)':fi>6?'var(--red)':fi>4?'var(--amber)':'var(--green)';}
+  function kneeColor(k){return k==null?'var(--muted)':k>=4?'var(--red)':k>=3?'var(--amber)':'var(--green)';}
+
+  document.getElementById('main').innerHTML = `
+    <div class="mg">
+      <div class="mc" style="border-color:var(--amber)">
+        <div class="ml">e1RM Latest</div>
+        <div class="mv" style="color:var(--amber)">${latE??'—'}<span class="mu">${latE?'kg':''}</span></div>
+        <div class="mt">${trend(latE,prevE)}</div>
+      </div>
+      <div class="mc" style="border-color:${fiColor(last.fi)}">
+        <div class="ml">Fatigue Index</div>
+        <div class="mv" style="color:${fiColor(last.fi)}">${last.fi??'—'}<span class="mu">${last.fi!=null?'/10':''}</span></div>
+        <div class="mt"><span style="color:${fiColor(last.fi)};font-size:10px">${last.fi!=null?(last.fi>6?'High':last.fi>4?'Moderate':'Low'):''}</span></div>
+      </div>
+      <div class="mc">
+        <div class="ml">OL Quality</div>
+        <div class="mv" style="color:var(--blue)">${last.avgOL??'—'}<span class="mu">${last.avgOL!=null?'/5':''}</span></div>
+        <div class="mt">${trend(last.avgOL,prev?.avgOL)}</div>
+      </div>
+      <div class="mc" style="border-color:${kneeColor(last.avgKnee)}">
+        <div class="ml">Knee Aware.</div>
+        <div class="mv" style="color:${kneeColor(last.avgKnee)}">${last.avgKnee??'—'}<span class="mu">${last.avgKnee!=null?'/5':''}</span></div>
+        <div class="mt">${trend(last.avgKnee,prev?.avgKnee,false)}</div>
+      </div>
+    </div>
+    <div class="trow">
+      <span class="tl">4-week rolling avg</span>
+      <div class="tsw${S.rolling?' on':''}" onclick="togRoll()"></div>
+    </div>
+    <div class="card"><div class="card-title">Estimated 1RM — Front Squat</div><div class="ch"><canvas id="c-e1rm"></canvas></div></div>
+    <div class="card"><div class="card-title">Weekly Fatigue Index <span style="opacity:.4;font-size:9px">(0 fresh · 10 fatigued)</span></div><div class="ch"><canvas id="c-fi"></canvas></div></div>
+    <div class="card"><div class="card-title">Session Difficulty — Mon vs Fri</div><div class="ch"><canvas id="c-diff"></canvas></div></div>
+    <div class="card"><div class="card-title">OL Lift Quality</div><div class="ch"><canvas id="c-ol"></canvas></div></div>
+    <div class="card"><div class="card-title">Knee Tendon Awareness</div><div class="ch"><canvas id="c-knee"></canvas></div></div>
+    <div class="card"><div class="card-title">Subjective Warmup Speed — Mon vs Fri</div><div class="ch"><canvas id="c-spd"></canvas></div></div>
+    <div class="card"><div class="card-title">Weekly e1RM Table</div>${weekTable(wd)}</div>
+    <div class="info-box">
+      <b>Fatigue Index</b> = weighted composite of session difficulty (×2.5), knee awareness (×2), OL quality inverted (×1), subjective speed inverted (×1.5). Scale 0–10.<br>
+      <b>e1RM</b> = load × (1 + (reps + RIR) / 30) — Epley formula adjusted for RIR.
+    </div>
+  `;
+  buildCharts(wd);
+}
+
+function weekTable(wd) {
+  const rows=[...wd].reverse().slice(0,12).map(w=>`<tr><td>${w.lbl}</td><td class="wk-e1rm">${w.e1rm??'—'}</td><td>${w.fi??'—'}</td><td>${w.avgOL??'—'}</td><td>${w.avgKnee??'—'}</td></tr>`).join('');
+  return`<table class="week-table"><thead><tr><th>Week</th><th>e1RM</th><th>FI</th><th>OL</th><th>Knee</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function togRoll(){S.rolling=!S.rolling;renderDash();}
+
+function buildCharts(wd) {
+  const labels=wd.map(w=>w.lbl), r=S.rolling;
+  const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'#1c1c1c'},ticks:{color:'#444',font:{family:'IBM Plex Mono',size:9}}},
+      y:{grid:{color:'#1c1c1c'},ticks:{color:'#444',font:{family:'IBM Plex Mono',size:9}}}}};
+  function line(data,color,fill=false){return{data,borderColor:color,backgroundColor:fill?color.replace(')',',0.08)').replace('rgb','rgba'):'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:color,tension:.35,fill,spanGaps:true};}
+  function dash(data,color){return{data,borderColor:color,borderDash:[4,4],borderWidth:1.5,pointRadius:0,tension:.4,fill:false,spanGaps:true};}
+
+  const eD=wd.map(w=>w.e1rm),eR=rollAvg(wd,'e1rm');
+  S.charts.e1rm=new Chart(document.getElementById('c-e1rm'),{type:'line',data:{labels,datasets:[{...line(eD,'#f59e0b',true),label:'e1RM'},...(r?[{...dash(eR,'rgba(245,158,11,.45)'),label:'4wk'}]:[])]}  ,options:{...base,plugins:{...base.plugins,legend:{display:r,labels:{color:'#555',font:{size:9}}}},scales:{...base.scales,y:{...base.scales.y,title:{display:true,text:'kg',color:'#333'}}}}});
+
+  const fiD=wd.map(w=>w.fi),fiR=rollAvg(wd,'fi');
+  S.charts.fi=new Chart(document.getElementById('c-fi'),{type:'bar',data:{labels,datasets:[{data:fiD,backgroundColor:fiD.map(v=>v==null?'transparent':v>6?'rgba(239,68,68,.65)':v>4?'rgba(245,158,11,.65)':'rgba(34,197,94,.65)'),borderRadius:3,label:'FI'},...(r?[{...dash(fiR,'rgba(255,255,255,.25)'),type:'line',label:'4wk'}]:[])]} ,options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0,max:10}}}});
+
+  const mD=wd.map(w=>w.monDiff),fD=wd.map(w=>w.friDiff),mDR=rollAvg(wd,'monDiff'),fDR=rollAvg(wd,'friDiff');
+  S.charts.diff=new Chart(document.getElementById('c-diff'),{type:'line',data:{labels,datasets:[{...line(mD,'#38bdf8'),label:'Mon'},{...line(fD,'#f59e0b'),label:'Fri'},...(r?[{...dash(mDR,'rgba(56,189,248,.35)'),label:'Mon avg'},{...dash(fDR,'rgba(245,158,11,.35)'),label:'Fri avg'}]:[])]} ,options:{...base,plugins:{legend:{display:true,labels:{color:'#555',font:{size:9},boxWidth:14}}},scales:{...base.scales,y:{...base.scales.y,min:1,max:5}}}});
+
+  const olD=wd.map(w=>w.avgOL),olR=rollAvg(wd,'avgOL');
+  S.charts.ol=new Chart(document.getElementById('c-ol'),{type:'line',data:{labels,datasets:[{...line(olD,'#38bdf8',true),label:'OL'},...(r?[{...dash(olR,'rgba(56,189,248,.4)'),label:'4wk'}]:[])]} ,options:{...base,scales:{...base.scales,y:{...base.scales.y,min:1,max:5}}}});
+
+  const kD=wd.map(w=>w.avgKnee),kR=rollAvg(wd,'avgKnee');
+  S.charts.knee=new Chart(document.getElementById('c-knee'),{type:'line',data:{labels,datasets:[{...line(kD,'#ef4444',true),label:'Knee'},...(r?[{...dash(kR,'rgba(239,68,68,.4)'),label:'4wk'}]:[])]} ,options:{...base,scales:{...base.scales,y:{...base.scales.y,min:1,max:5}}}});
+
+  const msD=wd.map(w=>w.monSpeed),fsD=wd.map(w=>w.friSpeed),msR=rollAvg(wd,'monSpeed'),fsR=rollAvg(wd,'friSpeed');
+  S.charts.spd=new Chart(document.getElementById('c-spd'),{type:'line',data:{labels,datasets:[{...line(msD,'#38bdf8'),label:'Mon'},{...line(fsD,'#f59e0b'),label:'Fri'},...(r?[{...dash(msR,'rgba(56,189,248,.35)'),label:'Mon avg'},{...dash(fsR,'rgba(245,158,11,.35)'),label:'Fri avg'}]:[])]} ,options:{...base,plugins:{legend:{display:true,labels:{color:'#555',font:{size:9},boxWidth:14}}},scales:{...base.scales,y:{...base.scales.y,min:1,max:5}}}});
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────
+function renderHist() {
+  if (!S.sessions.length) {
+    document.getElementById('main').innerHTML=`<div class="empty"><div class="empty-ic">📋</div><div class="empty-t">No sessions logged yet.<br>Tap Log to get started.</div></div>`;
+    return;
+  }
+  function tag(lbl,val,unit='',hi=false){
+    if(val==null)return'';
+    return`<div class="tag${hi?' hi':''}"><b>${val}${unit}</b> ${lbl}</div>`;
+  }
+  const items=[...S.sessions].reverse().map(s=>{
+    const fi=fatigueIdx(s),cls=s.day.toLowerCase();
+    let details='';
+    if(s.day==='MON'){details=[tag('OL',s.olQuality,'/5'),tag('Spd',s.subjectiveSpeed,'/5'),tag('Load',s.workingSetLoad,'kg'),tag('Sets',s.workingSets),tag('Knee',s.kneeAwareness,'/5'),tag('Diff',s.sessionDifficulty,'/5')].join('');}
+    else if(s.day==='WED'){details=[tag('OL',s.olQuality,'/5'),tag('BSQ',s.backSquatLoad,'kg'),tag('Sets',s.backSquatSets),tag('Knee',s.kneeAwareness,'/5')].join('');}
+    else{const est=e1rm(s.topSetLoad,s.topSetReps,s.topSetRIR);details=[tag('OL',s.olQuality,'/5'),tag('Spd',s.subjectiveSpeed,'/5'),tag('Load',s.topSetLoad,'kg'),tag('Reps',s.topSetReps),tag('RIR',s.topSetRIR),est?`<div class="tag hi">${est}kg e1RM</div>`:'',s.backoffSets&&s.backoffLoad?tag('Backoff',`${s.backoffSets}×${s.backoffLoad}`,'kg'):'',tag('Knee',s.kneeAwareness,'/5')].join('');}
+    const fiStr=fi!=null?`<span style="font-size:10px;margin-left:8px;color:${fi>6?'var(--red)':fi>4?'var(--amber)':'var(--green)'}">FI ${fi}</span>`:'';
+    return`<div class="si"><div class="sh"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span class="sd ${cls}">${s.day}</span><span class="sdate">${s.date}</span>${fiStr}</div><button class="del-btn" onclick="doDelete('${s.id}')">del</button></div><div class="tags">${details}</div></div>`;
+  }).join('');
+  document.getElementById('main').innerHTML=`<button class="exp-btn" onclick="exportCSV()">⬇ Export CSV</button>${items}`;
+}
+
+async function doDelete(id) {
+  if (!confirm('Delete this session?')) return;
+  const ok = await deleteSessionRemote(id);
+  if (ok) { S.sessions=S.sessions.filter(s=>s.id!==id); renderHist(); toast('Deleted'); }
+}
+
+function exportCSV() {
+  const headers=['date','day','olQuality','subjectiveSpeed','actualSpeed','workingSetLoad','workingSets','kneeAwareness','sessionDifficulty','backSquatLoad','backSquatSets','topSetLoad','topSetReps','topSetRIR','backoffSets','backoffLoad','e1rm_kg','fatigueIndex'];
+  const rows=S.sessions.map(s=>[s.date,s.day,s.olQuality??'',s.subjectiveSpeed??'',s.actualSpeed??'',s.workingSetLoad??'',s.workingSets??'',s.kneeAwareness??'',s.sessionDifficulty??'',s.backSquatLoad??'',s.backSquatSets??'',s.topSetLoad??'',s.topSetReps??'',s.topSetRIR??'',s.backoffSets??'',s.backoffLoad??'',e1rm(s.topSetLoad,s.topSetReps,s.topSetRIR)??'',fatigueIdx(s)??'']);
+  const csv=[headers,...rows].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='liftlog_'+todayStr()+'.csv';
+  a.click();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+(async()=>{
+  S.sessions = await loadData();
+  nav('log');
+})();
+</script>
+</body>
+</html>
